@@ -1,0 +1,17 @@
+aws_region            = "eu-west-1"
+project               = "fincorp"
+environment           = "primary"
+jenkins_instance_type = "t3.medium"
+rds_instance_class    = "db.t3.micro"
+key_pair_name         = "your-ec2-keypair-name"
+allowed_ssh_cidrs     = ["YOUR_IP_ADDRESS/32"]
+
+# Step 1: deploy environments/dr first, then run:
+#   cd environments/dr && terraform output dr_vault_arn
+# Paste the result here:
+dr_vault_arn = "arn:aws:backup:eu-central-1:ACCOUNT_ID:backup-vault:fincorp-dr-vault"
+
+# Never commit a real password — use an env var instead:
+#   export TF_VAR_db_password="YourStrongPassword123!"
+# Or pass it on the CLI: terraform apply -var="db_password=..."
+db_password = "CHANGE_ME"
