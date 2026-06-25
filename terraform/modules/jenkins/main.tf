@@ -74,20 +74,11 @@ data "aws_iam_policy_document" "jenkins_permissions" {
       "ecr:InitiateLayerUpload",
       "ecr:UploadLayerPart",
       "ecr:CompleteLayerUpload",
+      "ecr:StartImageScan",
       "ecr:DescribeImageScanFindings",
       "ecr:DescribeImages",
     ]
     resources = ["arn:aws:ecr:*:*:repository/*"]
-  }
-
-  statement {
-    sid    = "InspectorCVEGate"
-    effect = "Allow"
-    actions = [
-      "inspector2:ListFindings",
-      "inspector2:ListCoverage",
-    ]
-    resources = ["*"]
   }
 }
 

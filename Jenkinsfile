@@ -65,7 +65,11 @@ pipeline {
         stage('Build Image') {
             steps {
                 sh '''
+                    # --provenance=false: BuildKit attaches provenance attestations by
+                    # default, wrapping the image in an OCI image index that ECR cannot
+                    # scan. Disabling it produces a plain Docker manifest (scannable).
                     docker build \
+                        --provenance=false \
                         --secret id=npmrc,src=app/.npmrc \
                         -t "$ECR_REPO:$IMAGE_TAG" \
                         app/
@@ -87,6 +91,14 @@ pipeline {
         stage('CVE Gate') {
             steps {
                 sh '''
+                    echo "Triggering ECR image scan for $ECR_REPO_NAME:$IMAGE_TAG..."
+                    # scan_on_push is configured, but trigger explicitly so the gate is
+                    # deterministic. Ignore "scan already in progress / completed" errors.
+                    aws ecr start-image-scan \
+                        --repository-name "$ECR_REPO_NAME" \
+                        --image-id imageTag="$IMAGE_TAG" \
+                        --region "$AWS_REGION" 2>/dev/null || true
+
                     echo "Polling ECR basic scan results for $ECR_REPO_NAME:$IMAGE_TAG (max 5 minutes)..."
                     STATUS="NOT_STARTED"
                     for i in $(seq 1 30); do
