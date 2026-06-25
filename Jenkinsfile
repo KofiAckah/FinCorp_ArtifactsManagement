@@ -44,7 +44,20 @@ pipeline {
                     printf 'registry=%s\n%s:_authToken=%s\n' \
                         "$CA_URL" "${CA_URL#https:}" "$CA_TOKEN" > app/.npmrc
 
-                    echo "npm registry set to: $CA_URL"
+                    echo "npm registry configured: $CA_URL"
+                '''
+            }
+        }
+
+        stage('Test') {
+            steps {
+                sh '''
+                    docker run --rm \
+                        -v "$(pwd)/app/server:/usr/src/app" \
+                        -v "$(pwd)/app/.npmrc:/root/.npmrc:ro" \
+                        -w /usr/src/app \
+                        node:24-alpine \
+                        sh -c "npm ci && npm test"
                 '''
             }
         }
@@ -52,7 +65,7 @@ pipeline {
         stage('Build Image') {
             steps {
                 sh '''
-                    DOCKER_BUILDKIT=1 docker build \
+                    docker build \
                         --secret id=npmrc,src=app/.npmrc \
                         -t "$ECR_REPO:$IMAGE_TAG" \
                         app/
@@ -110,7 +123,7 @@ pipeline {
                     echo "HIGH: $HIGH | CRITICAL: $CRITICAL"
 
                     if [ "$HIGH" -gt 0 ] || [ "$CRITICAL" -gt 0 ]; then
-                        echo "BUILD FAILED: HIGH or CRITICAL CVEs detected. Fix vulnerabilities before merging."
+                        echo "BUILD FAILED: HIGH or CRITICAL CVEs detected."
                         exit 1
                     fi
 
@@ -128,7 +141,7 @@ pipeline {
             echo "Pipeline complete. Image: ${env.ECR_REPO}:${env.IMAGE_TAG}"
         }
         failure {
-            echo "Pipeline failed. Check logs above for details."
+            echo "Pipeline failed at stage: ${env.STAGE_NAME}. Check logs above."
         }
     }
 }

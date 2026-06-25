@@ -6,6 +6,13 @@ This guide covers everything to do manually in the Jenkins UI after `terraform a
 
 ## Prerequisites
 
+- Docker buildx plugin must be installed on the Jenkins server:
+  ```bash
+  sudo apt-get install -y docker-buildx-plugin
+  ```
+
+
+
 - Jenkins EC2 is running (from `terraform/up.sh` or `terraform apply`)
 - Wait ~5 minutes after instance creation for `user_data.sh` to finish
 - Get the Jenkins URL from terraform outputs:
