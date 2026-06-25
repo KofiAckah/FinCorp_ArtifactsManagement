@@ -87,22 +87,23 @@ pipeline {
         stage('CVE Gate') {
             steps {
                 sh '''
-                    echo "Polling ECR for scan results (max 4 minutes)..."
-                    STATUS="PENDING"
-                    for i in $(seq 1 24); do
-                        STATUS=$(aws ecr describe-image-scan-findings \
+                    echo "Waiting for ECR scan to complete (max 10 minutes)..."
+                    STATUS=""
+                    for i in $(seq 1 60); do
+                        STATUS=$(aws ecr describe-images \
                             --repository-name "$ECR_REPO_NAME" \
-                            --image-id imageTag="$IMAGE_TAG" \
+                            --image-ids imageTag="$IMAGE_TAG" \
                             --region "$AWS_REGION" \
-                            --query 'imageScanFindings.imageScanStatus.status' \
-                            --output text 2>/dev/null || echo "PENDING")
-                        echo "Attempt $i/24 — status: $STATUS"
+                            --query 'imageDetails[0].imageScanStatus.status' \
+                            --output text 2>/dev/null)
+                        echo "Attempt $i/60 — scan status: ${STATUS:-not started}"
                         [ "$STATUS" = "COMPLETE" ] && break
+                        [ "$STATUS" = "FAILED" ] && { echo "ERROR: ECR scan failed."; exit 1; }
                         sleep 10
                     done
 
                     if [ "$STATUS" != "COMPLETE" ]; then
-                        echo "ERROR: Scan did not complete within 4 minutes."
+                        echo "ERROR: Scan did not complete within 10 minutes."
                         exit 1
                     fi
 
