@@ -87,33 +87,38 @@ pipeline {
         stage('CVE Gate') {
             steps {
                 sh '''
-                    echo "Waiting for Inspector v2 to register image (max 5 minutes)..."
-                    SCAN_STATUS=""
+                    echo "Polling ECR basic scan results for $ECR_REPO_NAME:$IMAGE_TAG (max 5 minutes)..."
+                    STATUS="NOT_STARTED"
                     for i in $(seq 1 30); do
-                        SCAN_STATUS=$(aws inspector2 list-coverage \
-                            --filter-criteria "{\"ecrImageTags\":[{\"comparison\":\"EQUALS\",\"value\":\"$IMAGE_TAG\"}],\"ecrRepositoryName\":[{\"comparison\":\"EQUALS\",\"value\":\"$ECR_REPO_NAME\"}]}" \
+                        STATUS=$(aws ecr describe-image-scan-findings \
+                            --repository-name "$ECR_REPO_NAME" \
+                            --image-id imageTag="$IMAGE_TAG" \
                             --region "$AWS_REGION" \
-                            --query 'coveredResources[0].scanStatus.status' \
-                            --output text 2>/dev/null || echo "")
-                        echo "Attempt $i/30 — Inspector status: ${SCAN_STATUS:-not registered}"
-                        [ "$SCAN_STATUS" = "ACTIVE" ] && break
+                            --query 'imageScanStatus.status' \
+                            --output text 2>/dev/null || echo "NOT_STARTED")
+                        echo "Attempt $i/30 — scan status: $STATUS"
+                        [ "$STATUS" = "COMPLETE" ] && break
+                        [ "$STATUS" = "FAILED" ]   && { echo "ERROR: ECR image scan failed."; exit 1; }
                         sleep 10
                     done
 
-                    if [ "$SCAN_STATUS" != "ACTIVE" ]; then
-                        echo "ERROR: Inspector v2 did not activate scan within 5 minutes."
+                    if [ "$STATUS" != "COMPLETE" ]; then
+                        echo "ERROR: ECR scan did not complete within 5 minutes (last status: $STATUS)."
                         exit 1
                     fi
 
                     echo "Checking for HIGH and CRITICAL CVEs..."
                     FAIL=0
                     for SEVERITY in HIGH CRITICAL; do
-                        COUNT=$(aws inspector2 list-findings \
-                            --filter-criteria "{\"ecrImageTags\":[{\"comparison\":\"EQUALS\",\"value\":\"$IMAGE_TAG\"}],\"ecrRepositoryName\":[{\"comparison\":\"EQUALS\",\"value\":\"$ECR_REPO_NAME\"}],\"severity\":[{\"comparison\":\"EQUALS\",\"value\":\"$SEVERITY\"}]}" \
+                        COUNT=$(aws ecr describe-image-scan-findings \
+                            --repository-name "$ECR_REPO_NAME" \
+                            --image-id imageTag="$IMAGE_TAG" \
                             --region "$AWS_REGION" \
-                            --max-results 1 \
-                            --query 'length(findings)' \
-                            --output text 2>/dev/null || echo "0")
+                            --query "imageScanFindings.findingSeverityCounts.$SEVERITY" \
+                            --output text 2>/dev/null)
+                        if [ "$COUNT" = "None" ] || [ -z "$COUNT" ]; then
+                            COUNT=0
+                        fi
                         echo "$SEVERITY: $COUNT"
                         [ "$COUNT" -gt 0 ] && FAIL=1
                     done
