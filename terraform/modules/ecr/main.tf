@@ -1,3 +1,17 @@
+# Force basic scanning so scan results are available via the standard ECR API.
+# Enhanced scanning (Inspector v2) returns None for imageScanStatus.
+resource "aws_ecr_registry_scanning_configuration" "basic" {
+  scan_type = "BASIC"
+
+  rule {
+    scan_frequency = "SCAN_ON_PUSH"
+    repository_filter {
+      filter      = "fincorp/*"
+      filter_type = "WILDCARD"
+    }
+  }
+}
+
 resource "aws_ecr_repository" "this" {
   name                 = var.name
   image_tag_mutability = "IMMUTABLE"
