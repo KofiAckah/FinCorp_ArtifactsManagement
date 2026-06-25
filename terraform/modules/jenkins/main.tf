@@ -79,6 +79,16 @@ data "aws_iam_policy_document" "jenkins_permissions" {
     ]
     resources = ["arn:aws:ecr:*:*:repository/*"]
   }
+
+  statement {
+    sid    = "InspectorCVEGate"
+    effect = "Allow"
+    actions = [
+      "inspector2:ListFindings",
+      "inspector2:ListCoverage",
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_policy" "jenkins" {
