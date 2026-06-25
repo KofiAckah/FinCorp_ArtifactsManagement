@@ -32,3 +32,4 @@ override.tf.json
 *.swo
 .vscode/settings.json
 Thumbs.db
+FinCorp.md
